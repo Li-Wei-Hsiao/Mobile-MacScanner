@@ -45,5 +45,23 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+
+	<!-- *** Start of user permission *** -->
+
+	<!-- Camera for OCR scanning -->
+    <key>NSCameraUsageDescription</key>
+    <string>Camera access is required to scan MAC codes.</string>
+
+    <!-- Optional: if you write/export to Photos or need photo picker -->
+    <!-- <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>Photo library access is required to export files.</string> -->
+
+    <!-- Network usage is implicit and does not need to be specifically declared.
+    However, the following is required if a microphone is used (not required for this project) -->
+    <!-- <key>NSMicrophoneUsageDescription</key>
+    <string>Microphone access is required for audio recording.</string> -->
+
+	<!-- *** End of user permission *** -->
+
 </dict>
 </plist>

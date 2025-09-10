@@ -1,4 +1,25 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- *** Start of user permission *** -->
+    <!-- Camera for OCR scanning -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- Internet for SCP uploads (SSH/SFTP) -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Features: Any camera will do (avoid limiting yourself to the rear camera, as Chromebooks may only have a front camera) -->
+    <uses-feature android:name="android.hardware.camera.any" android:required="true" />
+
+    <!-- Autofocus can improve scanning stability, but avoid setting it as necessary to avoid excessive filtering. -->
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+
+    <!-- Optional: if you plan to write to shared external storage (not recommended for Android 10+) -->
+    <!-- See notes below for Android 13+ scoped storage changes -->
+    <!-- <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" /> -->
+
+    <!-- *** End of user permission *** -->
+
+
     <application
         android:label="macscanner"
         android:name="${applicationName}"
