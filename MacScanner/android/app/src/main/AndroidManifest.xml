@@ -16,6 +16,7 @@
     <!-- Optional: if you plan to write to shared external storage (not recommended for Android 10+) -->
     <!-- See notes below for Android 13+ scoped storage changes -->
     <!-- <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" /> -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
 
     <!-- *** End of user permission *** -->
 
@@ -41,6 +42,10 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <meta-data
+                android:name="com.google.mlkit.vision.DEPENDENCIES"
+                android:value="ocr" />
+            <!-- To use multiple models: android:value="ocr,ocr_chinese,ocr_devanagari,ocr_japanese,ocr_korean,..." -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
