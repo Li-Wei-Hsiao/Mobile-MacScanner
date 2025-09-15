@@ -16,7 +16,8 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+2  # Major, Minor, Patch, Build
+version: 1.0.1+1  # Major, Minor, Patch, Build
+buildmode: release
 
 environment:
   sdk: ^3.9.0
@@ -40,8 +41,8 @@ dependencies:
   google_mlkit_text_recognition: ^0.15.0
 
   # Local storage and file paths
-  sqflite: ^2.3.0
-  path_provider: ^2.1.3
+  sqflite: ^2.4.2
+  #path_provider: ^2.1.3
 
   # Sound feedback
   audioplayers: ^6.5.1
@@ -50,13 +51,13 @@ dependencies:
   csv: ^6.0.0
 
   # Secure credential storage (Keychain/Keystore)
-  flutter_secure_storage: ^9.2.2
+  flutter_secure_storage: ^9.2.4
 
   # SSH/SFTP(SCP) for uploads (dartssh2)
-  dartssh2: ^2.8.2
+  dartssh2: ^2.13.0
 
   # State management (choose one; here use provider for simplicity)
-  provider: ^6.1.2
+  provider: ^6.1.5
 
   # Navigation
   go_router: ^16.2.1
@@ -64,7 +65,7 @@ dependencies:
   # UI helpers (optional)
   intl: ^0.20.2
 
-  file_picker: ^10.3.2
+  file_picker: ^10.3.3
   permission_handler: ^12.0.1
   shared_preferences: ^2.5.3
 

@@ -15,19 +15,19 @@ class ExportUseCase {
     required this.fileService,
   });
 
-  /// 匯出檔案，依 MAC 升冪排序，使用 local_id 作 No 欄
+  // Export CSV file for a given ScanFile, using local_id as ascending No column
   Future<String> exportFileToCSV(ScanFile file) async {
     final fileId = file.id!;
     final fileName = file.name;
 
-    // 1. 先重新整理 local_id，確保連號
+    // Reload and resequence local_id to ensure continuity
     await scanRepo.resequenceFile(fileId);
 
-    // 2. 取得記錄並以 MAC 升冪排序
+    // Get records, sort by MAC ascending
     final records = await scanRepo.fetchByFile(fileId);
     records.sort((a, b) => a.mac.compareTo(b.mac));
 
-    // 3. 組 CSV 內容
+    // 3. Build CSV content
     final csv = StringBuffer()..writeln('No,MAC,Suffix,Timestamp,Note');
     for (var r in records) {
       final no = r.localId ?? 0;
@@ -38,11 +38,11 @@ class ExportUseCase {
       csv.writeln('$no,${esc(r.mac)},${esc(r.suffix)},${esc(ts)},${esc(r.note ?? '')}');
     }
 
-    // 4. 獲取匯出目錄
+    // 4. Get user-preferred export directory from SharedPreferences
     final prefs = await SharedPreferences.getInstance();
     final dir = prefs.getString('exportDir') ?? '';
 
-    // 5. 寫檔並回傳路徑
+    // 5. Write to file and return path
     final fileObj = dir.isNotEmpty
         ? await fileService.exportCsvToPath(
           dirPath: dir,

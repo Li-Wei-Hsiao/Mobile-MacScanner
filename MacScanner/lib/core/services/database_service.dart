@@ -1,6 +1,5 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path_provider/path_provider.dart';
-import 'dart:io';
 
 class DatabaseService {
   static final DatabaseService _instance = DatabaseService._();
@@ -16,7 +15,7 @@ class DatabaseService {
       '${dir.path}/mac_scanner.db',
       version: 2,
       onCreate: (db, version) async {
-        // 檔案表
+        // File list table
         await db.execute('''
           CREATE TABLE scan_files(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -27,7 +26,7 @@ class DatabaseService {
           );
         ''');
 
-        // 掃描記錄表
+        // Scan in records table
         await db.execute('''
           CREATE TABLE scan_records(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -41,14 +40,14 @@ class DatabaseService {
           );
         ''');
 
-        // 索引
+        // Search optimization indexes
         await db.execute('CREATE INDEX idx_file_id ON scan_records(file_id);');
         await db.execute('CREATE INDEX idx_suffix ON scan_records(suffix);');
         await db.execute('CREATE UNIQUE INDEX ux_records_file_local ON scan_records(file_id, local_id);');
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
-          // 為既有資料庫新增 local_id 欄位
+          // Add local_id column and unique index
           await db.execute('ALTER TABLE scan_records ADD COLUMN local_id INTEGER;');
           await db.execute('CREATE UNIQUE INDEX ux_records_file_local ON scan_records(file_id, local_id);');
         }
@@ -57,7 +56,7 @@ class DatabaseService {
     return _db!;
   }
 
-  // 檔案操作
+  // File operations
   Future<int> createFile(String name, String description) async {
     final database = await db;
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -100,7 +99,7 @@ class DatabaseService {
     return await database.delete('scan_files', where: 'id = ?', whereArgs: [id]);
   }
 
-  // 記錄操作
+  // Record operations
   Future<int> insertRecord(int fileId, String mac, String suffix, {String? note}) async {
     final database = await db;
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -108,14 +107,14 @@ class DatabaseService {
     print('insertRecord SQL begin for fileId=$fileId, mac=$mac, suffix=$suffix, note=$note');
 
     return await database.transaction((txn) async {
-      // 取得該檔案的下一個 local_id
+      // Get next local_id
       final maxRow = await txn.rawQuery(
         'SELECT COALESCE(MAX(local_id), 0) AS m FROM scan_records WHERE file_id = ?',
         [fileId],
       );
       final nextLocalId = (maxRow.first['m'] as int) + 1;
 
-      // 更新檔案的 updated_at
+      // Update scan_files.updated_at
       print('Updating scan_files.updated_at for fileId=$fileId to $now');
       await txn.update(
         'scan_files',
@@ -124,7 +123,7 @@ class DatabaseService {
         whereArgs: [fileId],
       );
 
-      // 插入新紀錄
+      // Insert new record
       final recordId = await txn.insert('scan_records', {
         'file_id': fileId,
         'local_id': nextLocalId,
@@ -165,17 +164,17 @@ class DatabaseService {
     return await database.delete('scan_records', where: 'id = ?', whereArgs: [recordId]);
   }
 
-  // 新增：重新整理檔案內的 local_id 連號
+  // Reload and resequence local_id
   Future<void> resequenceFile(int fileId) async {
     final database = await db;
     await database.transaction((txn) async {
-      // 0. 先将该 fileId 下所有 local_id 设为 NULL，清除旧编号
+      // 0. Set local_id to NULL for all records under this fileId
       await txn.rawUpdate(
         'UPDATE scan_records SET local_id = NULL WHERE file_id = ?',
         [fileId],
       );
 
-      // 1. 按 MAC 升序（相同时按 id）取出所有记录
+      // 1. Ascending order by MAC (and id to break ties)
       final rows = await txn.query(
         'scan_records',
         where: 'file_id = ?',
@@ -183,7 +182,7 @@ class DatabaseService {
         orderBy: 'mac ASC, id ASC',
       );
 
-      // 2. 依此顺序连号赋值
+      // 2. Update local_id sequentially
       var seq = 1;
       for (final r in rows) {
         await txn.update(

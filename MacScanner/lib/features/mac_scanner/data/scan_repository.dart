@@ -18,7 +18,7 @@ class ScanRepository {
     return maps.map(ScanRecord.fromMap).toList();
   }
 
-  // 新增此方法：載入最近 limit 筆記錄
+  // Load records with pagination
   Future<List<ScanRecord>> fetchRecent(int limit) async {
     final database = await _db.db;
     final maps = await database.query(
@@ -37,7 +37,7 @@ class ScanRepository {
     return _db.deleteRecord(recordId);
   }
 
-  // 新增：重新整理檔案內的序號
+  // Reload and resequence local_id
   Future<void> resequenceFile(int fileId) async {
     print('resequenceFile called with fileId=$fileId');
     await _db.resequenceFile(fileId);

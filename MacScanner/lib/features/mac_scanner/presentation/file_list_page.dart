@@ -154,7 +154,7 @@ class _FileListPageState extends State<FileListPage> {
         builder: (_) => HistoryPage(fileId: file.id, fileName: file.name),
       ),
     ).then((_) {
-      setState(() {});  // 回到主頁時刷新檔案列表，包括 recordCount
+      setState(() {});  // Refresh file list when returning to home page, including record counts
     });
   }
 

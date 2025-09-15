@@ -15,7 +15,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      debugShowCheckedModeBanner: false, // 關閉 debug 標籤
+      debugShowCheckedModeBanner: false, // CLose the debug banner
       title: 'MAC Scanner',
       theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.teal),
       routerConfig: AppRouter(cameras: cameras).router,

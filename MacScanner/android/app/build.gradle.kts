@@ -5,6 +5,8 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val appName by extra("MACScanner")
+
 android {
     namespace = "com.example.macscanner"
     compileSdk = flutter.compileSdkVersion
@@ -37,8 +39,24 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    // Setting APK name
+    applicationVariants.all {
+        outputs.all {
+            if (this is com.android.build.gradle.internal.api.BaseVariantOutputImpl) {
+                outputFileName = "$appName-$versionName-$versionCode.apk"
+            }
+        }
+    }
 }
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    implementation("com.google.mlkit:text-recognition-chinese:16.0.0")
+    implementation("com.google.mlkit:text-recognition-devanagari:16.0.0")
+    implementation("com.google.mlkit:text-recognition-japanese:16.0.0")
+    implementation("com.google.mlkit:text-recognition-korean:16.0.0")
 }

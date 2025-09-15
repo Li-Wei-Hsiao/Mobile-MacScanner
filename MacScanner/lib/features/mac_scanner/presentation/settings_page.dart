@@ -22,14 +22,14 @@ class _SettingsPageState extends State<SettingsPage> {
   final _remoteCtrl = TextEditingController();
   String? _exportDir;
 
-  // 新增：版本資訊字串
+  // Version info
   String _versionText = 'Loading...';
 
   @override
   void initState() {
     super.initState();
     _loadAllSettings();
-    _loadVersion(); // 讀取版本資訊
+    _loadVersion(); // Read app version info
   }
 
   Future<void> _loadVersion() async {
@@ -119,7 +119,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           const SizedBox(height: 16),
           const Divider(),
-          // 版本與作者資訊
+          // Version and Author Info
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 24),
             child: Center(

@@ -17,13 +17,13 @@ class ScanUseCase {
     await audio.playSuccess();
   }
 
-  /// 匯出指定檔案的 CSV：依 MAC 升冪排序，No 欄位從 1～N
+  // Export CSV file for a given ScanFile, using No column from 1 to N sorted by MAC ascending
   Future<File> exportCsv(int fileId, String fileName) async {
-    // 1. 取出並排序
+    // 1. fetch records and sort by MAC ascending
     final records = await repo.fetchByFile(fileId);
     records.sort((a, b) => a.mac.compareTo(b.mac));
 
-    // 2. 組 CSV 字串
+    // 2. combine CSV content
     final csv = StringBuffer()..writeln('No,MAC,Suffix,Timestamp,Note');
     for (var i = 0; i < records.length; i++) {
       final r = records[i];
@@ -33,7 +33,7 @@ class ScanUseCase {
       csv.writeln('$no,${esc(r.mac)},${esc(r.suffix)},${esc(ts)},${esc(r.note ?? '')}');
     }
 
-    // 3. 選擇匯出路徑
+    // 3. Check user-preferred export directory from SharedPreferences
     final prefs = await SharedPreferences.getInstance();
     final dir = prefs.getString('exportDir') ?? '';
     if (dir.isNotEmpty) {

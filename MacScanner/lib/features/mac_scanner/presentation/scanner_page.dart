@@ -166,27 +166,7 @@ class _ScannerPageState extends State<ScannerPage> {
       _busy = false;
     }
   }
-/*
-  Rect _mapCorrectRect(Rect rect, Size previewSize) {
-    final renderBox = _previewKey.currentContext!.findRenderObject() as RenderBox;
-    final displaySize = renderBox.size;
-    final offset = renderBox.localToGlobal(Offset.zero);
 
-    // 以 cover 模式計算 scale
-    final scale = max(displaySize.width / previewSize.height, displaySize.height / previewSize.width);
-    final dispW = previewSize.height * scale;
-    final dispH = previewSize.width  * scale;
-    final offX = (dispW - displaySize.width)  / 2;
-    final offY = (dispH - displaySize.height) / 2;
-
-    final left   = rect.left   * scale - offX + offset.dx;
-    final top    = rect.top    * scale - offY + offset.dy;
-    final right  = rect.right  * scale - offX + offset.dx;
-    final bottom = rect.bottom * scale - offY + offset.dy;
-
-    return Rect.fromLTRB(left, top, right, bottom);
-  }
-*/
   Rect _mapCorrectRect(Rect rect, Size previewSize) {
     final renderBox = _previewKey.currentContext!.findRenderObject() as RenderBox;
     final displaySize = renderBox.size;
@@ -209,9 +189,6 @@ class _ScannerPageState extends State<ScannerPage> {
 
     return Rect.fromLTRB(left, top, right, bottom);
   }
-
-
-
 
   @override
   void dispose() {

@@ -3,14 +3,14 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 
 class FileService {
-  /// 預設匯出：寫入 App Documents 目錄
+  // Default export: write to App Documents directory
   Future<File> exportCsv(String content, String filename) async {
     final directory = await getApplicationDocumentsDirectory();
     final file = File('${directory.path}/${_safeFilename(filename)}.csv');
     return file.writeAsString(content, flush: true);
   }
 
-  /// 高階匯出：寫入使用者指定的目錄，可選擇是否附加時間戳
+  // Write CSV to user-specified path with optional timestamp
   Future<File> exportCsvToPath({
     required String dirPath,
     required String filename,
@@ -28,12 +28,12 @@ class FileService {
     return file.writeAsString(content, flush: true);
   }
 
-  // 取得 App Documents 目錄
+  // Get list of files in a directory
   Future<Directory> getAppDirectory() async {
     return getApplicationDocumentsDirectory();
   }
 
-  // 以下為私有工具方法
+  // Get list of files in a directory
   String _safeFilename(String name) {
     return name.replaceAll(RegExp(r'[<>:"/\\|?*\n\r\t]'), '_').trim();
   }

@@ -1,7 +1,7 @@
 import 'package:permission_handler/permission_handler.dart';
 
 class StoragePermission {
-  /// 請求 MANAGE_EXTERNAL_STORAGE
+  // Request MANAGE_EXTERNAL_STORAGE
   static Future<bool> requestManageExternalStorage() async {
     if (await Permission.manageExternalStorage.isGranted) {
       return true;
@@ -11,7 +11,7 @@ class StoragePermission {
       return true;
     }
     if (status.isPermanentlyDenied) {
-      // 引導至系統設定頁
+      // Permanently denied, open app settings
       openAppSettings();
     }
     return false;

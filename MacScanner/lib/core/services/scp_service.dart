@@ -21,7 +21,7 @@ class ScpService {
     );
 
     final sftp = await client.sftp();
-    // 嘗試建立單層遠端目錄（若不存在）
+    // Try to change to the target directory from remote directory
     try {
       await sftp.mkdir(remoteDir);
     } catch (_) {}
