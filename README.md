@@ -1,104 +1,16 @@
 # Overview
 
-A Flutter-based cross-platform application for scanning and managing 16-digit hexadecimal MAC addresses on Android and iOS devices. This app provides camera-based text recognition, duplicate detection, audio feedback, file export, and secure SCP file upload capabilities.
+A Flutter-based application for scanning, recording, and exporting MAC-like identifiers. Supports per-file record numbering, CSV export, SCP upload, and customizable settings.
 
-# Features
+## Features
 
-## Camera Text Recognition
-
-- Real-time scanning of 16-digit MAC addresses using the device camera.
-- Utilizes Google ML Kit Text Recognition to detect and extract text from the camera feed.
-
-## Company Prefix Validation
-
-- Validates the first 6 digits against a configurable company-specific prefix.
-- Displays an error message if the prefix does not match.
-
-## Duplicate Detection
-
-- Checks the last 6 digits for duplicates to prevent redundant entries.
-- Skips storage and alerts the user if a duplicate is detected.
-
-## Audio Feedback
-
-- Plays success and error sounds upon scan validation.
-- Configurable via settings toggle to enable or disable audio cues.
-
-## Data Management
-
-- Uses SQLite for dynamic storage of scan records.
-- Supports addition, modification, deletion, and search of individual entries.
-
-## File Export
-
-- Exports scan records as TXT or CSV files.
-- Customizable file naming format: `YYYYMMDD_count_description.ext`.
-
-## Secure SCP Upload
-
-- Transfers exported files to a remote server via SCP.
-- Stores server credentials securely using Flutter Secure Storage.
-
-# Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/mac-scanner-app.git
-cd mac-scanner-app
-
-# Install dependencies
-flutter pub get
-
-# Run the app
-flutter run
-```
-
-# Dependencies
-
-```yaml
-dependencies:
-  flutter:
-    sdk: flutter
-  camera: ^1.2.0
-  google_mlkit_text_recognition: ^0.4.0
-  sqflite: ^2.2.0
-  path_provider: ^2.0.15
-  audioplayers: ^2.1.0
-  ssh2: ^2.0.0
-  flutter_secure_storage: ^9.0.0
-  csv: ^5.0.0
-```
-
-# Configuration
-
-## Android
-
-Add the following permissions in `android/app/src/main/AndroidManifest.xml`:
-
-```xml
-<uses-permission android:name="android.permission.CAMERA" />
-<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-<uses-permission android:name="android.permission.INTERNET" />
-```
-
-## iOS
-
-Add to `ios/Runner/Info.plist`:
-
-```xml
-<key>NSCameraUsageDescription</key>
-<string>Camera access is required for scanning MAC addresses</string>
-<key>NSPhotoLibraryUsageDescription</key>
-<string>Photo library access for saving scanned data</string>
-```
-
-# Usage
-
-1. Launch the app and grant camera permissions.
-2. Point the camera at a 16-digit MAC address (e.g., `ABCDEF1234567890`).
-3. The app validates the prefix and duplicate status automatically.
-4. On success, a green toast appears and a success sound plays.
-5. Records are stored in the local database.
+- **Camera Scanning**: Scan 12-character hexadecimal device codes via camera
+- **File Organization**: Store records grouped by "scan file" 
+- **Sequential Numbering**: Per-file sequential numbering (`local_id`), synchronized with MAC ascending order
+- **CSV Export**: Export records to CSV with columns: No (local_id), MAC, Suffix, Timestamp, Note
+- **SCP Upload**: Upload CSV files via SCP protocol
+- **Customizable Settings**: Configure SCP credentials & export directory
+- **Version Display**: Show app version and author info in Settings
 
 # Architecture
 
@@ -113,12 +25,127 @@ flowchart LR
   Store --> Audio[Play Sound]
 ``` 
 
-# Security
+  
+## Installation
 
-- Credentials are encrypted using Flutter Secure Storage.
-- SSH/SCP connections are secured via SSH protocol.
-- Input validation enforced through regex for MAC format.
+1. Clone the repository
+2. Run `flutter pub get`
+3. Configure platform (Android/iOS) as usual
+4. Launch on device/emulator
 
-# License
+## Usage
 
-This project is licensed under the MIT License.
+### Creating a Scan File
+
+- Tap **+** on **Files** page
+- Enter file name and description
+
+### Scanning Codes
+
+- From **Files** list, select **Scan**
+- Align camera to code and capture
+- Records saved with auto-play confirmation sound
+
+### Viewing History
+
+- From **Files** list, select **View**
+- Records display MAC sorted ascending or descending via the sort button
+- **Reload** button resequences `local_id` to ensure continuity
+
+### Export CSV
+
+- On **Files** list, tap the three-dot menu next to a file and choose **Export CSV**
+- Exports records sorted by MAC ascending, with `No` = `local_id` from 1…N
+- Uses user-configured export directory (or app documents folder if unset)
+- Shows a SnackBar with the output file path
+
+### Upload via SCP
+
+- Ensure **Export directory** is set in **Settings**
+- In the file's menu, choose **Upload** to export and upload via SCP
+
+## Settings
+
+Navigate to **Settings** (gear icon in Files page):
+
+- **OUI Prefix**: Default 6-hex prefix for new codes
+- **SCP Settings**: Host, Port, Username, Password, Remote Directory
+- **Export CSV Directory**: Choose folder for CSV exports
+
+
+## Project Structure
+
+```
+lib/
+├── core/
+│   └── services/
+│       ├── database_service.dart    # SQLite setup, local_id resequencing
+│       ├── file_service.dart        # CSV write helpers
+│       ├── scp_service.dart         # SCP upload logic
+│       └── secure_storage_service.dart # Encrypted key/value store
+└── features/
+    └── mac_scanner/
+        ├── data/
+        │   ├── scan_file.dart & file_repository.dart
+        │   └── scan_record.dart & scan_repository.dart
+        ├── domain/
+        │   ├── export_usecase.dart     # CSV export using local_id
+        │   └── scan_usecase.dart       # Scan handling & audio feedback
+        └── presentation/
+            ├── file_list_page.dart     # File list & actions
+            ├── history_page.dart       # Record view & resequence
+            ├── settings_page.dart      # App settings & version/author display
+            └── scanner_page.dart       # Camera scanning
+```
+
+## Database Schema
+
+### scan_files
+- `id` (Primary Key)
+- `name`, `description`
+- `created_at`, `updated_at`
+
+### scan_records
+- `id` (Primary Key)
+- `file_id` (Foreign Key)
+- `local_id` (Per-file sequential number)
+- `mac`, `suffix`
+- `timestamp`, `note`
+
+## Key Technical Features
+
+### Local ID Management
+- Each file maintains its own sequential numbering starting from 1
+- `local_id` is synchronized with MAC address ascending order
+- Automatic resequencing fills gaps when records are deleted
+
+### CSV Export Format
+```csv
+No,MAC,Suffix,Timestamp,Note
+1,020000ABC123,ABC123,2025-09-15T08:55:00.000Z,
+2,020000ABC124,ABC124,2025-09-15T08:56:00.000Z,Sample note
+```
+
+
+## Dependencies
+
+Key Flutter packages used:
+- `camera`: Camera integration for scanning
+- `google_mlkit_text_recognition`: text recognition model
+- `sqflite`: Local SQLite database
+- `audioplayers`: Sound feedback
+- `csv`: CSV export
+- `flutter_secure_storage`: Encrypted credential storage
+- `dartssh2`: SSH/SFTP(SCP) for uploads (dartssh2)
+- `provider`: State management (choose one; here use provider for simplicity)
+- `intl`: UI helpers
+- `file_picker`: Directory selection for exports
+- `permission_handler`: Permissnion request
+- `shared_preferences`: App settings storage
+- `flutter_launcher_icons`: icon support
+- `package_info_plus`: App version information
+
+
+## License
+
+MIT License
