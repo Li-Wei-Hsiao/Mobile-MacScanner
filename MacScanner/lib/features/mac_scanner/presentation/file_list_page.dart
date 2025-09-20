@@ -14,6 +14,7 @@ import '../../../core/services/scp_service.dart';
 import 'scanner_page.dart';
 import 'history_page.dart';
 import 'settings_page.dart';
+import '../../../core/services/secure_storage_service.dart';
 
 class FileListPage extends StatefulWidget {
   final List<CameraDescription> cameras;
@@ -28,6 +29,7 @@ class _FileListPageState extends State<FileListPage> {
   final _scanRepo = ScanRepository();
   final _fileService = FileService();
   final _scpService = ScpService();
+  final _storage = SecureStorageService();
   late final ExportUseCase _exportUseCase = ExportUseCase(
     fileService: _fileService,
     fileRepo: _fileRepo,
@@ -35,6 +37,7 @@ class _FileListPageState extends State<FileListPage> {
   );
 
   Future<List<ScanFile>> _loadFiles() => _fileRepo.getAllFiles();
+
 
   @override
   Widget build(BuildContext context) {
@@ -121,9 +124,31 @@ class _FileListPageState extends State<FileListPage> {
     );
   }
 
-  void _onAction(String action, ScanFile file) {
+  Future<void> _onAction(String action, ScanFile file) async{
     switch (action) {
       case 'scan':
+        final prefix = await _storage.read('prefix');
+        if (prefix == null || prefix!.isEmpty) {
+          await showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Prefix Not Set'),
+              content: const Text('Please set the company prefix in Settings before scanning.'),
+              actions: [
+                TextButton(
+                  child: const Text('OK'),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+          );
+          await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const SettingsPage()),
+          );
+          setState(() {});
+          return;
+        }
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => ScannerPage(cameras: widget.cameras, scanFile: file)),
@@ -227,8 +252,8 @@ class _FileListPageState extends State<FileListPage> {
           );
           return;
         }
+        if (!await StoragePermission.requestManageExternalStorage()) return;
       }
- //     if (!await StoragePermission.requestManageExternalStorage()) return;
 
       // 使用 ExportUseCase.exportsFileToCSV
       final csvPath = await _exportUseCase.exportFileToCSV(file);
