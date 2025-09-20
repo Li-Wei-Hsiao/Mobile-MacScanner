@@ -1,11 +1,13 @@
 // lib/features/mac_scanner/presentation/scanner_page.dart
 import 'dart:typed_data';
+import 'dart:io';
 import 'dart:math';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:permission_handler/permission_handler.dart';
+//import 'package:image/image.dart' as img;
 
 import '../data/scan_file.dart';
 import '../data/scan_repository.dart';
@@ -13,6 +15,7 @@ import '../../../core/services/audio_service.dart';
 import '../domain/scan_usecase.dart';
 import '../../../core/utils/validators.dart';
 import '../../../core/services/secure_storage_service.dart';
+
 
 enum ScanStatus { scanning, success, duplicate, invalid }
 
@@ -48,6 +51,10 @@ class _ScannerPageState extends State<ScannerPage> {
 
   final GlobalKey _previewKey = GlobalKey();
 
+  final int _verifyFrameCount = 3;
+  final List<String> _recentRawCodes = <String>[];
+  final double _cropRatio = 0.6; // center 60% area
+  
   @override
   void initState() {
     super.initState();
@@ -81,87 +88,166 @@ class _ScannerPageState extends State<ScannerPage> {
       setState(() => _statusText = 'Camera permission denied');
       return;
     }
+    // select first camera
     final camera = widget.cameras.first;
-    _controller = CameraController(camera, ResolutionPreset.high, enableAudio: false);
-    await _controller!.initialize();
+    _controller = CameraController(
+      camera,
+      ResolutionPreset.high,
+      imageFormatGroup: Platform.isIOS
+          ? ImageFormatGroup.bgra8888
+          : ImageFormatGroup.nv21,
+      enableAudio: false,
+    );
 
-    await _controller!.setFocusMode(FocusMode.locked);
-
-    _controller!.startImageStream(_processCameraImage);
-    setState(() {});
+    try {
+      await _controller!.initialize();
+      if (!mounted) return;
+//      await _controller!.setFocusMode(FocusMode.locked);
+        await _controller!.setFocusMode(FocusMode.auto);
+      _controller!.startImageStream(_processCameraImage);
+      setState(() {});
+    } catch (e) {
+      debugPrint('Camera init error: $e');
+      setState(() => _statusText = 'Camera init error');
+    }
   }
 
   Uint8List _concatenatePlanes(CameraImage image) {
     final buffer = WriteBuffer();
-    for (final plane in image.planes) {
-      buffer.putUint8List(plane.bytes);
+    if (Platform.isIOS) {
+      // iOS bgra8888: single plane
+      buffer.putUint8List(image.planes[0].bytes);
+    } else {
+      // Android nv21: combine Y+UV
+      for (final plane in image.planes) {
+        buffer.putUint8List(plane.bytes);
+      }
     }
     return buffer.done().buffer.asUint8List();
   }
 
+  InputImageFormat _getMlFormat() {
+    return Platform.isIOS
+        ? InputImageFormat.bgra8888
+        : InputImageFormat.nv21;
+  }
+
+
+  Rect get _scanRegion {
+    final sz = _controller!.value.previewSize!;
+    final cropW = sz.width * _cropRatio;
+    final cropH = sz.height * _cropRatio;
+    final dx = (sz.width - cropW) / 2;
+    final dy = (sz.height - cropH) / 2;
+    return Rect.fromLTWH(dx, dy, cropW, cropH);
+  }
+
+  Future<InputImage> _toInputImage(CameraImage image) async {
+    final bytes = _concatenatePlanes(image);
+    final metadata = InputImageMetadata(
+      size: Size(image.width.toDouble(), image.height.toDouble()),
+      rotation: InputImageRotation.rotation90deg,
+      format: _getMlFormat(),
+      bytesPerRow: image.planes[0].bytesPerRow,
+    );
+    return InputImage.fromBytes(bytes: bytes, metadata: metadata);
+  }
+
+
   void _processCameraImage(CameraImage image) async {
     if (_busy) return;
     _busy = true;
-    if (_companyPrefix == null) {
-      _busy = false;
-      return;
-    }
 
     try {
-      final nv21bytes = _concatenatePlanes(image);
-      final inputImage = InputImage.fromBytes(
-        bytes: nv21bytes,
-        metadata: InputImageMetadata(
-          size: Size(image.width.toDouble(), image.height.toDouble()),
-          rotation: InputImageRotation.rotation90deg,
-          format: InputImageFormat.nv21,
-          bytesPerRow: image.planes[0].bytesPerRow,
-        ),
+/*
+      final bytes = _concatenatePlanes(image);
+      final metadata = InputImageMetadata(
+        size: Size(image.width.toDouble(), image.height.toDouble()),
+        rotation: InputImageRotation.rotation90deg,
+        format: _getMlFormat(),
+        bytesPerRow: image.planes[0].bytesPerRow,
       );
-
+      final inputImage = InputImage.fromBytes(bytes: bytes, metadata: metadata);
+*/
+      
+      final inputImage = await _toInputImage(image);
       final visionText = await _recognizer.processImage(inputImage);
 
-      _boxes.clear();
-      _statuses.clear();
-
+      String? foundRaw;
       for (final block in visionText.blocks) {
         for (final line in block.lines) {
           final raw = line.text.replaceAll(RegExp(r'[^A-Fa-f0-9]'), '');
           if (raw.length == 12 &&
-              Validators.isValidMac12(raw) &&
+	      _scanRegion.contains(line.boundingBox.topLeft) &&
+              _scanRegion.contains(line.boundingBox.bottomRight) &&
+              _companyPrefix != null &&
               Validators.hasCorrectPrefix(raw, _companyPrefix!)) {
+            foundRaw = raw;
+            break;
+          }
+        }
+        if (foundRaw != null) break;
+      }
+
+      if (foundRaw != null) {
+        // add to sliding window
+        _recentRawCodes.add(foundRaw);
+        if (_recentRawCodes.length > _verifyFrameCount) {
+          _recentRawCodes.removeAt(0);
+        }
+
+        // only proceed if majority agree
+        if (_recentRawCodes.length == _verifyFrameCount) {
+          final counts = <String,int>{};
+          for (var code in _recentRawCodes) {
+            counts[code] = (counts[code] ?? 0) + 1;
+          }
+          final best = counts.entries.reduce((a,b) => a.value>b.value? a: b);
+          if (best.value >= 2) {
+            final raw = best.key;
             final suffix = raw.substring(6);
             final exists = await _useCase.repo.suffixExists(widget.scanFile.id!, suffix);
             final status = exists ? ScanStatus.duplicate : ScanStatus.success;
-            _boxes.add(line.boundingBox);
-            _statuses.add(status);
+
+	    _boxes.clear();
+            _statuses.clear();
+            for (final b in visionText.blocks) {
+              for (final l in b.lines) {
+                final lr = l.text.replaceAll(RegExp(r'[^A-Fa-f0-9]'), '');
+                if (lr == raw &&
+                    _scanRegion.contains(l.boundingBox.topLeft) &&
+                    _scanRegion.contains(l.boundingBox.bottomRight)) {
+                  _boxes.add(l.boundingBox);
+                  _statuses.add(status);
+                }
+              }
+            }
+
             if (!exists) {
               await _useCase.processCodeForFile(raw, _companyPrefix!, widget.scanFile.id!);
               AudioService().playSuccess();
-              print("***************************************** play end.");
               _refreshCount();
             }
+            setState(() {
+              _status = status;
+              _statusText = status == ScanStatus.success ? 'Success' : 'Duplicate MAC';
+            });
+            // reset for next scan session
+            _recentRawCodes.clear();
+            Future.delayed(const Duration(seconds: 4), () {
+              if (!mounted) return;
+              setState(() {
+                _status = ScanStatus.scanning;
+                _statusText = 'Scanning for MAC...';
+                _boxes.clear();
+                _statuses.clear();
+              });
+            });
           }
         }
       }
-
-      if (_boxes.isNotEmpty) {
-        setState(() {
-          _status = _statuses.last;
-          _statusText = _status == ScanStatus.success ? 'Success' : 'Duplicate MAC';
-        });
-        Future.delayed(const Duration(seconds: 4), () {
-          if (!mounted) return;
-          setState(() {
-            _status = ScanStatus.scanning;
-            _statusText = 'Scanning for MAC...';
-            _boxes.clear();
-            _statuses.clear();
-          });
-        });
-      }
     } catch (e) {
-      print('ProcessImage error: $e');
+      debugPrint('ProcessImage error: $e');
     } finally {
       _busy = false;
     }
@@ -203,6 +289,13 @@ class _ScannerPageState extends State<ScannerPage> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     final previewSize = _controller!.value.previewSize!;
+    final screenW = MediaQuery.of(context).size.width;
+    final screenH = MediaQuery.of(context).size.height;
+    final scanW = screenW;
+    final scanH = screenH * _cropRatio / 2;
+    final scanX = 0.0;
+    //final scanY = kToolbarHeight + MediaQuery.of(context).padding.top;
+    final scanY = kToolbarHeight / 2;
 
     return Scaffold(
       appBar: AppBar(
@@ -232,6 +325,21 @@ class _ScannerPageState extends State<ScannerPage> {
               ),
             ),
           ),
+
+	  // 中央掃描區域遮罩＋邊框
+          Positioned(
+            left: scanX,
+            top: scanY,
+            width: scanW,
+            height: scanH,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black26,
+                border: Border.all(color: Colors.greenAccent, width: 2),
+              ),
+            ),
+          ),
+
           for (int i = 0; i < _boxes.length; i++)
             CustomPaint(
               painter: _BoxPainter(
@@ -276,9 +384,8 @@ class _BoxPainter extends CustomPainter {
       ..color = status == ScanStatus.success
           ? Colors.green
           : status == ScanStatus.duplicate
-          ? Colors.yellow
-          : Colors.red;
-    //canvas.drawRect(box, paint);
+            ? Colors.yellow
+            : Colors.red;
     canvas.drawRect(box.shift(Offset(0, -20)), paint);
   }
 

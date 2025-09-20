@@ -38,7 +38,10 @@ class _HistoryPageState extends State<HistoryPage> {
         ],
       ),
     );
-    if (ok == true) setState(() => _repo.deleteRecord(id));
+    if (ok == true) {
+      await _repo.deleteRecord(id);
+      setState(() {});
+    }
   }
 
   void _toggleSort() => setState(() => _sortAscending = !_sortAscending);

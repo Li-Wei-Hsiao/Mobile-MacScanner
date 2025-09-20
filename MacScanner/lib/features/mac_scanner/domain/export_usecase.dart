@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/services/file_service.dart';
 import '../data/file_repository.dart';
@@ -39,13 +41,28 @@ class ExportUseCase {
     }
 
     // 4. Get user-preferred export directory from SharedPreferences
-    final prefs = await SharedPreferences.getInstance();
-    final dir = prefs.getString('exportDir') ?? '';
+    String dirPath;
+    if (Platform.isIOS) {
+      final appDocDir = await getApplicationDocumentsDirectory();
+      dirPath = appDocDir.path;
+    }
+    else {
+      // Android：使用使用者偏好設定的目錄
+      final prefs = await SharedPreferences.getInstance();
+      final exportDir = prefs.getString('exportDir') ?? '';
+      if (exportDir.isEmpty) {
+        throw Exception('Export directory not set');
+      }
+      dirPath = exportDir;
+    }
+
+//    final prefs = await SharedPreferences.getInstance();
+//    final dir = prefs.getString('exportDir') ?? '';
 
     // 5. Write to file and return path
-    final fileObj = dir.isNotEmpty
+    final fileObj = dirPath.isNotEmpty
         ? await fileService.exportCsvToPath(
-          dirPath: dir,
+          dirPath: dirPath,
           filename: 'scan_$fileName',
           content: csv.toString(),
           appendTimestamp: true,

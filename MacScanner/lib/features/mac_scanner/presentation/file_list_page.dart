@@ -218,15 +218,17 @@ class _FileListPageState extends State<FileListPage> {
 
   Future<void> _exportToExternal(ScanFile file) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final dir = prefs.getString('exportDir');
-      if (dir == null || dir.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please set export directory in Settings')),
-        );
-        return;
+      if (!Platform.isIOS) {
+        final prefs = await SharedPreferences.getInstance();
+        final dir = prefs.getString('exportDir');
+        if (dir == null || dir.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please set export directory in Settings')),
+          );
+          return;
+        }
       }
-      if (!await StoragePermission.requestManageExternalStorage()) return;
+ //     if (!await StoragePermission.requestManageExternalStorage()) return;
 
       // 使用 ExportUseCase.exportsFileToCSV
       final csvPath = await _exportUseCase.exportFileToCSV(file);
